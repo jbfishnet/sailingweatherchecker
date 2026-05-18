@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ocean-dark: #0f172a;
+  --color-neon-blue: #00f2ff;
+  --color-neon-green: #39ff14;
+  --background-image-carbon: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+}
+
+@layer base {
+  body {
+    @apply bg-ocean-dark text-slate-100 font-sans;
+    background-image: theme(--background-image-carbon);
+  }
+}
+
+@layer components {
+  .neon-border {
+    @apply border border-neon-blue;
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+  }
+
+  .neon-text {
+    @apply text-neon-blue;
+    filter: drop-shadow(0 0 5px rgba(0, 242, 255, 0.5));
+  }
+
+  .glass-card {
+    @apply bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-xl overflow-hidden;
+  }
+}

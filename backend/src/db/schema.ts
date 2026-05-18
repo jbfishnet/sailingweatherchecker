@@ -1,0 +1,23 @@
+export const schema = `
+CREATE TABLE IF NOT EXISTS spots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  lat REAL NOT NULL,
+  lon REAL NOT NULL,
+  snooze_until DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS weather_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  spot_id INTEGER NOT NULL,
+  last_check DATETIME DEFAULT CURRENT_TIMESTAMP,
+  is_good INTEGER NOT NULL,
+  summary TEXT,
+  FOREIGN KEY (spot_id) REFERENCES spots(id)
+);
+`;
