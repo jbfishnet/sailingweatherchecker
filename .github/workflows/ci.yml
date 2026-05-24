@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, feat/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install && npm install --workspace backend
+      - name: Run Backend Tests
+        run: npm run test --workspace backend
+      - name: Build Backend
+        run: npm run build --workspace backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install && npm install --workspace frontend
+      - name: Run Frontend Tests
+        run: npm run test --workspace frontend
+      - name: Build Frontend
+        run: npm run build --workspace frontend

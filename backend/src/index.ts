@@ -1,26 +1,13 @@
-import express from 'express';
-import cors from 'cors';
+import app from './app.js';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
-import spotRoutes from './routes/spots.js';
-import settingsRoutes from './routes/settings.js';
-import weatherRoutes from './routes/weather.js';
 import db from './db/index.js';
 import { getWeatherData, isGoodConditions } from './services/weather.js';
 import { notifyAll } from './services/notifications.js';
 import { kmhToBeaufort } from './utils/beaufort.js';
 
 dotenv.config();
-
-const app = express();
 const port = process.env.PORT || 3001;
-
-app.use(cors());
-app.use(express.json());
-
-app.use('/api/spots', spotRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/weather', weatherRoutes);
 
 async function checkWeatherForAllSpots() {
   console.log('Running weather check...');
@@ -29,15 +16,11 @@ async function checkWeatherForAllSpots() {
   const settings: any = {};
   settingsRows.forEach(row => settings[row.key] = row.value);
 
-  // Apply defaults if settings are missing
   if (!settings.minBeaufort) settings.minBeaufort = 2;
   if (!settings.maxBeaufort) settings.maxBeaufort = 4;
 
   for (const spot of spots) {
-    // Check snooze
-    if (spot.snooze_until && new Date(spot.snooze_until) > new Date()) {
-      continue;
-    }
+    if (spot.snooze_until && new Date(spot.snooze_until) > new Date()) continue;
 
     try {
       const weather = await getWeatherData(spot.lat, spot.lon);
@@ -51,10 +34,9 @@ async function checkWeatherForAllSpots() {
         `${kmhToBeaufort(weather.windSpeed)} Bft, ${weather.temp}°C`
       );
 
-      // Notify if changed to good
       if (isGood && (!lastCheck || lastCheck.is_good === 0)) {
         const bft = kmhToBeaufort(weather.windSpeed);
-        const body = `⛵ Good sailing at ${spot.name}! \nWind: ${bft} Bft, Temp: ${weather.temp}°C, Waves: ${weather.waveHeight || 'N/A'}m.`;
+        const body = `⛵ Good sailing at ${spot.name}! \nWind: ${bft} Bft, Temp: ${weather.temp}°C.`;
         await notifyAll(settings, `Sailing Alert: ${spot.name}`, body);
       }
     } catch (error) {
@@ -63,15 +45,10 @@ async function checkWeatherForAllSpots() {
   }
 }
 
-// Every 4 hours
 cron.schedule('0 */4 * * *', checkWeatherForAllSpots);
 
 app.post('/api/refresh', async (req, res) => {
   await checkWeatherForAllSpots();
-  res.json({ status: 'ok' });
-});
-
-app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
