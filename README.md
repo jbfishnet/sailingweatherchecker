@@ -18,18 +18,20 @@ A high-tech, single-user dashboard for sailors to monitor their favorite spots a
 ## 📦 Local Deployment (Docker)
 
 1. **Clone the repo**
-2. **Run with Docker Compose**:
+2. **Run the deployment script**:
    ```bash
-   # Recommended: Use Docker Compose V2
-   docker compose up --build
+   ./run.sh
    ```
-   *Note: If you encounter 'ContainerConfig' errors on Raspberry Pi, ensure you are using a modern version of Docker and Docker Compose (V2).*
+   *The script automatically detects your Docker version and handles common Raspberry Pi / ARM compatibility issues.*
 
-3. **Access the app**:
+3. **Troubleshooting 'ContainerConfig' Errors**:
+   If you see a `KeyError: 'ContainerConfig'`, it means you are using an older version of `docker-compose` (V1). The `run.sh` script attempts to fix this by performing a clean restart. For the best experience, we recommend upgrading to Docker Compose V2 (`docker compose`).
+
+4. **Access the app**:
    - Frontend: [http://localhost](http://localhost)
    - Backend API: [http://localhost:3001](http://localhost:3001)
 
-4. **Persistence**:
+5. **Persistence**:
    The database is stored in a Docker volume named `sailing-data`.
 
 ## ☁️ Render Deployment
