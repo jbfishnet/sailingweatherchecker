@@ -20,8 +20,11 @@ A high-tech, single-user dashboard for sailors to monitor their favorite spots a
 1. **Clone the repo**
 2. **Run with Docker Compose**:
    ```bash
-   docker-compose up --build
+   # Recommended: Use Docker Compose V2
+   docker compose up --build
    ```
+   *Note: If you encounter 'ContainerConfig' errors on Raspberry Pi, ensure you are using a modern version of Docker and Docker Compose (V2).*
+
 3. **Access the app**:
    - Frontend: [http://localhost](http://localhost)
    - Backend API: [http://localhost:3001](http://localhost:3001)

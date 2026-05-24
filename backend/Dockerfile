@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-slim AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 # Install build dependencies for better-sqlite3 (needed on ARM)
@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-slim
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 # Install production dependencies and build native modules
@@ -35,4 +35,5 @@ COPY --from=builder /app/dist ./dist
 RUN apt-get purge -y python3 make g++ && apt-get autoremove -y
 
 EXPOSE 3001
+ENV NODE_ENV=production
 CMD ["npm", "start"]
