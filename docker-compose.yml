@@ -1,8 +1,7 @@
 version: '3'
 services:
-  backend:
-    container_name: sailing-backend
-    image: sailing-backend:latest
+  sailing-api:
+    image: sailing-api:latest
     build:
       context: ./backend
     ports:
@@ -14,15 +13,14 @@ services:
       - DB_PATH=/app/data/sailing.db
     restart: unless-stopped
 
-  frontend:
-    container_name: sailing-frontend
-    image: sailing-frontend:latest
+  sailing-app:
+    image: sailing-app:latest
     build:
       context: ./frontend
     ports:
       - "80:80"
     depends_on:
-      - backend
+      - sailing-api
     restart: unless-stopped
 
 volumes:

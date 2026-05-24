@@ -1,12 +1,12 @@
 #!/bin/bash
 
-echo "Starting clean deployment..."
+echo "Starting deep clean deployment..."
 
-# Try to stop and remove containers/volumes if they exist
-if docker-compose version >/dev/null 2>&1; then
-    DOCKER_CMD="docker-compose"
-elif docker compose version >/dev/null 2>&1; then
+# Identify if we're using V1 or V2
+if docker compose version >/dev/null 2>&1; then
     DOCKER_CMD="docker compose"
+elif docker-compose version >/dev/null 2>&1; then
+    DOCKER_CMD="docker-compose"
 fi
 
 if [ ! -z "$DOCKER_CMD" ]; then
@@ -14,14 +14,18 @@ if [ ! -z "$DOCKER_CMD" ]; then
     $DOCKER_CMD down --remove-orphans 2>/dev/null
 fi
 
-# The 'ContainerConfig' bug is usually tied to stale metadata.
-# We will manually remove the images to force a complete rebuild of the layer cache.
-echo "Removing existing images to force a fresh build..."
-docker rmi sailing-backend:latest sailing-frontend:latest 2>/dev/null
+# The 'ContainerConfig' bug is caused by metadata mismatch in Docker Compose V1.
+# We will manually stop and remove ANY containers related to this project to be sure.
+echo "Forcefully removing old containers to clear metadata errors..."
+docker ps -a --filter name=sailingweatherchecker --filter name=sailing- -q | xargs -r docker rm -f
 
-echo "Building and starting containers..."
+# Prune build cache to ensure fresh layers
+# echo "Cleaning build cache..."
+# docker builder prune -f
+
+echo "Building and starting fresh containers..."
 if [ "$DOCKER_CMD" == "docker-compose" ]; then
-    # V1 Fix: perform a full down then up
+    # V1: use up with build
     docker-compose up --build -d
 else
     # V2

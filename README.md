@@ -18,21 +18,22 @@ A high-tech, single-user dashboard for sailors to monitor their favorite spots a
 ## 📦 Local Deployment (Docker)
 
 ### 🥧 IMPORTANT: Raspberry Pi / ARM Users
-If you are running on a **Raspberry Pi 5** or similar ARM device, the legacy `docker-compose` (V1) has a known bug (`KeyError: 'ContainerConfig'`).
+The legacy `docker-compose` (V1) has a known bug (`KeyError: 'ContainerConfig'`) on ARM architectures. **I cannot test actual container execution in this environment**, but the following steps are the industry-standard fixes for this bug.
 
-**To fix this, do one of the following:**
+**Option 1: Hard Reset (Recommended)**:
+Perform a clean sweep of old metadata:
+```bash
+./clean-deploy.sh
+```
 
-1.  **Use the provided clean script (Recommended)**:
-    ```bash
-    ./clean-deploy.sh
-    ```
-2.  **Upgrade to Docker Compose V2**:
-    ```bash
-    sudo apt-get update
-    sudo apt-get install docker-compose-plugin
-    # Then use:
-    docker compose up --build
-    ```
+**Option 2: Upgrade to Docker Compose V2 (Best Permanent Fix)**:
+V2 is written in Go and does not have the 'ContainerConfig' metadata bug:
+```bash
+sudo apt-get update
+sudo apt-get install docker-compose-plugin
+# Then use the new command:
+docker compose up --build
+```
 
 ---
 

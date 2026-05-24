@@ -36,8 +36,8 @@ def main():
     # Check docker-compose
     success &= check_file('docker-compose.yml', [
         'services:',
-        'backend:',
-        'frontend:',
+        'sailing-api:',
+        'sailing-app:',
         'sailing-data:'
     ])
 
