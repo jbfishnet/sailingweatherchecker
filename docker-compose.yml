@@ -1,9 +1,10 @@
-version: '3.8'
+version: '3'
 services:
   backend:
+    container_name: sailing-backend
+    image: sailing-backend:latest
     build:
       context: ./backend
-      dockerfile: Dockerfile
     ports:
       - "3001:3001"
     volumes:
@@ -14,9 +15,10 @@ services:
     restart: unless-stopped
 
   frontend:
+    container_name: sailing-frontend
+    image: sailing-frontend:latest
     build:
       context: ./frontend
-      dockerfile: Dockerfile
     ports:
       - "80:80"
     depends_on:
