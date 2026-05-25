@@ -2,91 +2,156 @@ name: CI & Release
 
 on:
   push:
-    branches: [ main, feat/* ]
-    tags: [ 'v*' ]
+    branches: [main, 'feat/**']
+    tags: ['v*']
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # ── Tests run on the Intel self-hosted runner ─────────────────────────────
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64]
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm install && npm install --workspace backend --workspace frontend
-      - name: Run Backend Tests
-        run: npm run test --workspace backend
-      - name: Run Frontend Tests
-        run: npm run test --workspace frontend
+          cache: npm
 
-  build-and-push:
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend tests
+        run: npm run test --workspace backend
+
+      - name: Run frontend tests
+        run: npm run test --workspace frontend --if-present
+
+  # ── Native amd64 build on the Intel runner ───────────────────────────────
+  build-amd64:
+    name: Build ${{ matrix.component }} (amd64)
     needs: test
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64]
     permissions:
-      contents: write
       packages: write
     strategy:
+      fail-fast: false
       matrix:
         component: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=sha,format=long
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build and push Docker image
+      - name: Build and push (amd64)
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.component }}
           push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-amd64
+          cache-from: type=gha,scope=${{ matrix.component }}-amd64
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-amd64
 
+  # ── Native arm64 build on the Raspberry Pi runner ────────────────────────
+  build-arm64:
+    name: Build ${{ matrix.component }} (arm64)
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: [self-hosted, linux, ARM64]
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (arm64)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.component }}
+          push: true
+          platforms: linux/arm64
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-arm64
+          cache-from: type=gha,scope=${{ matrix.component }}-arm64
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-arm64
+
+  # ── Combine both arch images into a single multi-arch manifest ───────────
+  merge-manifests:
+    name: Merge ${{ matrix.component }} manifests
+    needs: [build-amd64, build-arm64]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: [self-hosted, linux, X64]
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest (commit sha tag)
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-arm64
+
+      - name: Tag as latest (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-arm64
+
+      - name: Tag as semver (tagged releases)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:${VERSION} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:sha-${{ github.sha }}-arm64
+
+  # ── GitHub Release on version tags ───────────────────────────────────────
   release:
-    needs: build-and-push
+    needs: merge-manifests
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: |
-            docker-compose.yml
-            clean-deploy.sh
+          files: docker-compose.yml
