@@ -1,7 +1,18 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
+
+vi.mock('../src/db/index.js', () => {
+  const stmt = { all: () => [], run: () => ({ lastInsertRowid: 1 }), get: () => undefined };
+  return {
+    default: {
+      prepare: () => stmt,
+      exec: () => {},
+      transaction: (fn: any) => (args: any) => fn(args),
+    },
+  };
+});
+
 import app from '../src/app.js';
-import db from '../src/db/index.js';
 
 describe('API Endpoints', () => {
   it('GET /api/health should return ok', async () => {

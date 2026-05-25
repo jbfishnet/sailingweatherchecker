@@ -1,11 +1,10 @@
-version: '3'
 services:
   sailing-api:
     image: sailing-api:latest
     build:
       context: ./backend
     ports:
-      - "3001:3001"
+      - "9921:3001"
     volumes:
       - sailing-data:/app/data
     environment:
@@ -18,7 +17,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "80:80"
+      - "9922:80"
     depends_on:
       - sailing-api
     restart: unless-stopped

@@ -1,13 +1,25 @@
+export interface DailyForecast {
+  date: string;
+  weatherCode: number;
+  tempMax: number;
+  tempMin: number;
+  windSpeedMax: number;
+  windGustsMax: number;
+  windDirection: number;
+  precipitationSum: number;
+}
+
 export interface WeatherData {
   time: string;
   temp: number;
-  windSpeed: number; // in km/h or m/s? I'll use km/h and convert to Beaufort
+  windSpeed: number; // km/h — convert with kmhToBeaufort
   windDirection: number;
   windGusts: number;
   cloudCover: number;
   precipitation: number;
   waveHeight?: number;
   weatherCode: number;
+  daily: DailyForecast[];
 }
 
 export interface Spot {
