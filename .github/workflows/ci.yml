@@ -12,9 +12,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # ── Tests run on the Intel self-hosted runner ─────────────────────────────
+  # ── Tests run on the self-hosted ARM64 runner ────────────────────────────
   test:
-    runs-on: [self-hosted, linux, X64]
+    runs-on: [self-hosted, linux, ARM64]
     steps:
       - uses: actions/checkout@v4
 
