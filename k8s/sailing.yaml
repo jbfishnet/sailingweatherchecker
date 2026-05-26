@@ -60,7 +60,7 @@ spec:
     spec:
       containers:
         - name: sailing-api
-          image: ghcr.io/fishbeef/sailingweatherchecker-backend:latest
+          image: ghcr.io/lambdawp-567/sailingweatherchecker-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3001
@@ -148,7 +148,7 @@ spec:
     spec:
       containers:
         - name: sailing-app
-          image: ghcr.io/fishbeef/sailingweatherchecker-frontend:latest
+          image: ghcr.io/lambdawp-567/sailingweatherchecker-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
