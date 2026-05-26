@@ -12,9 +12,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # ── Tests run on the Intel self-hosted runner ─────────────────────────────
+  # ── Tests run on the self-hosted ARM64 runner ────────────────────────────
   test:
-    runs-on: [self-hosted, linux, X64]
+    runs-on: [self-hosted, linux, ARM64]
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +32,7 @@ jobs:
       - name: Run frontend tests
         run: npm run test --workspace frontend --if-present
 
-  # ── Native amd64 build on the Intel runner ───────────────────────────────
+  # ── Native amd64 build on the Intel self-hosted runner ───────────────────
   build-amd64:
     name: Build ${{ matrix.component }} (amd64)
     needs: test
