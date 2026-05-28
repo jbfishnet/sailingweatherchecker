@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Bell, Mail, MessageSquare, Share2, FlaskConical, CheckCircle, XCircle, MinusCircle, Loader } from 'lucide-react';
+import { Save, Bell, Mail, MessageSquare, Share2, FlaskConical, CheckCircle, XCircle, MinusCircle, Loader, Eye } from 'lucide-react';
 
 type Tab = 'conditions' | 'channels' | 'test';
 
@@ -42,6 +42,8 @@ export default function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState('');
   const [testResults, setTestResults] = useState<Record<string, ChannelStatus>>({});
   const [testingAll, setTestingAll] = useState(false);
+  const [simulateResults, setSimulateResults] = useState<Record<string, ChannelStatus>>({});
+  const [simulatingEmail, setSimulatingEmail] = useState(false);
 
   useEffect(() => {
     axios.get('/api/settings').then(res => setSettings((prev: any) => ({ ...prev, ...res.data })));
@@ -54,6 +56,19 @@ export default function SettingsPage() {
   };
 
   const set = (key: string, value: any) => setSettings((s: any) => ({ ...s, [key]: value }));
+
+  const simulateEmail = async () => {
+    setSimulatingEmail(true);
+    setSimulateResults({ sendgrid: 'sending', email: 'sending' });
+    try {
+      const res = await axios.post('/api/settings/simulate-email', settings);
+      setSimulateResults(res.data);
+    } catch (e: any) {
+      setSimulateResults({ sendgrid: e.message || 'error', email: e.message || 'error' });
+    } finally {
+      setSimulatingEmail(false);
+    }
+  };
 
   const testAll = async () => {
     setTestingAll(true);
@@ -276,6 +291,43 @@ export default function SettingsPage() {
               Check your inbox / WhatsApp / Teams for the test message.
             </p>
           )}
+
+          {/* ── Preview Email ── */}
+          <div className="border-t border-slate-700 pt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-sm">Preview HTML Email</p>
+                <p className="text-xs opacity-50 mt-0.5">
+                  Sends a fully rendered sailing-alert email with sample weather data.
+                </p>
+              </div>
+              <button
+                onClick={simulateEmail}
+                disabled={simulatingEmail}
+                className="bg-indigo-500 text-white font-bold px-5 py-2 rounded-lg hover:bg-indigo-400 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {simulatingEmail ? <Loader size={16} className="animate-spin" /> : <Eye size={16} />}
+                Send Preview
+              </button>
+            </div>
+            {['sendgrid', 'email'].map(key => {
+              const ch = channels.find(c => c.key === key)!;
+              const status: ChannelStatus = simulateResults[key] ?? 'idle';
+              return (
+                <div key={key} className="flex items-center gap-4 p-3 bg-slate-800/30 rounded-xl border border-slate-700/50">
+                  <ch.icon size={18} className={ch.color} />
+                  <span className="flex-1 text-sm font-semibold">{ch.label}</span>
+                  <StatusLabel status={status} />
+                  <StatusIcon status={status} />
+                </div>
+              );
+            })}
+            {Object.values(simulateResults).some(v => v === 'ok') && (
+              <p className="text-sm text-indigo-400 text-center">
+                Preview email sent! Check your inbox for the rendered sailing alert.
+              </p>
+            )}
+          </div>
         </section>
       )}
 

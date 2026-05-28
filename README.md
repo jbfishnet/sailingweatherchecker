@@ -10,7 +10,9 @@ A personal sailing dashboard that monitors your favourite spots and notifies you
 - **Live weather cards** — current Beaufort, wind direction, temperature, wave height, cloud cover, and weather description
 - **7-day forecast strip** — compact daily overview with emoji icons and Beaufort numbers; good-wind days highlighted green
 - **Sailable / No-go badge** — evaluated against your personal thresholds every page load, every 15 min in the browser, and every 4 h in the backend
-- **Smart notifications** — alerts fire only when conditions change from bad to good (no repeat spam); supports SendGrid, SMTP email, WhatsApp (Twilio), and MS Teams webhook
+- **Smart notifications** — alerts fire only when conditions change from bad to good (no repeat spam); supports SendGrid, SMTP email (HTML), WhatsApp (Twilio, plain text), and MS Teams webhook
+- **Rich HTML emails** — fully styled sailing-alert email with current conditions, Beaufort wind scale, wave height, and 2-day forecast; SendGrid and SMTP channels receive HTML; WhatsApp/Teams receive plain text
+- **Preview email button** — Settings → Test tab → "Send Preview" sends a completely rendered HTML sailing alert with sample data so you can verify how it looks before relying on real alerts
 - **Snooze per spot** — silence a spot for 24 h with one tap
 - **Settings page** — configure thresholds (wind, temperature, gusts, wave height, precipitation, sunny-sky toggle) and all notification credentials with a live test button per channel
 - **Dark / Day mode** — toggle between High-Tech Racer (dark) and Nautical (light) themes; preference saved in browser
@@ -209,9 +211,9 @@ Set `VITE_API_URL` to your Render backend URL if the two services are on separat
 
 ## CI / CD
 
-GitHub Actions runs on every push and pull request to `main`:
+GitHub Actions runs on every push and pull request to `main` using a GitHub-hosted `ubuntu-latest` runner (always available, independent of self-hosted infrastructure):
 
-1. **Test** — installs dependencies and runs `vitest` for both backend and frontend (Node 20)
+1. **Test** — TypeScript type-check for both workspaces, then runs Vitest for backend and frontend (Node 20). This job must pass before any merge to `main`.
 2. **Build & push** — on pushes to `main` or version tags, builds multi-arch Docker images (`linux/amd64` + `linux/arm64`) and pushes to GitHub Container Registry
 3. **Release** — on `v*` tags, creates a GitHub Release with auto-generated notes
 
@@ -221,6 +223,17 @@ Images are published to:
 
 Tags: `latest` (main branch), `v<semver>` (tagged releases), `sha-<commit>` (every build).
 
+### Branch protection setup
+
+To enforce the test gate on `main`, enable branch protection rules in **GitHub → Settings → Branches → Add rule for `main`**:
+
+- ✅ Require a pull request before merging
+- ✅ Require status checks to pass — add **`Test`** (the CI job name) as required
+- ✅ Require branches to be up to date before merging
+- ✅ Do not allow bypassing the above settings
+
+With these rules active, no code can reach `main` without the full test suite passing in CI.
+
 ---
 
 ## Testing
@@ -229,18 +242,33 @@ Tags: `latest` (main branch), `v<semver>` (tagged releases), `sha-<commit>` (eve
 # Run all backend tests
 npm run test --workspace backend
 
+# Run all frontend tests
+npm run test --workspace frontend
+
 # Run in watch mode during development
 cd backend && npx vitest
 ```
 
-The test suite (32 tests across 4 files) covers:
+The test suite (107 tests across 8 files) covers:
+
+**Backend (74 tests)**
 
 | File | What it tests |
 |---|---|
-| `tests/notifications.test.ts` | Unit tests for every notification channel — SendGrid, SMTP email, WhatsApp (Twilio), MS Teams; skip-on-missing-config logic; error propagation |
-| `tests/settings.test.ts` | Integration tests for `POST /api/settings/test-notification` — all channels return `ok`/`skipped`/error-message correctly; SendGrid bad-key and unverified-sender errors surface in the response |
-| `tests/api.test.ts` | Basic smoke tests for `/api/health`, `/api/spots`, `/api/settings` |
+| `tests/notifications.test.ts` | Unit tests for every notification channel — SendGrid, SMTP email (with HTML param), WhatsApp, MS Teams; skip-on-missing-config; error propagation; HTML pass-through via notifyAll |
+| `tests/settings.test.ts` | Integration tests for `POST /api/settings/test-notification` and `POST /api/settings/simulate-email` — all channels return `ok`/`skipped`/error-message; HTML email is sent by the simulate endpoint |
+| `tests/emailTemplate.test.ts` | `buildEmailHtml()` and `buildEmailText()` output — spot name, conditions, Beaufort, wind direction, 2-day forecast, wave height conditional rendering |
+| `tests/weather.test.ts` | `isGoodConditions()` with all threshold combinations — wind Beaufort, gusts, temperature, precipitation, wave height, sunnyOnly; maxWaveHeight=0 bypass |
+| `tests/api.test.ts` | Smoke tests for `/api/health`, `/api/spots`, `/api/settings` |
 | `tests/beaufort.test.ts` | Beaufort scale conversion utility |
+
+**Frontend (33 tests)**
+
+| File | What it tests |
+|---|---|
+| `src/pages/Settings.test.tsx` | Tab navigation, "Test All" and "Send Preview" buttons, correct API endpoint called per button, settings load on mount |
+| `src/utils/weather.test.ts` | `wmoToDescription`, `wmoToEmoji`, `windDirectionText`, `kmhToBeaufort` |
+| `src/App.test.tsx` | App smoke test — main heading renders |
 
 All tests use Vitest with full ESM mocking (`vi.hoisted`) — no network calls, no native SQLite required.
 
@@ -262,14 +290,16 @@ All tests use Vitest with full ESM mocking (`vi.hoisted`) — no network calls, 
 
 ### Notification channels
 
-| Channel | Required fields |
-|---|---|
-| **SendGrid** | API key · From address (must be a verified sender in your SendGrid account) · To address |
-| **SMTP Email** | Host · Port · Username · Password · From address · To address |
-| **WhatsApp (Twilio)** | Account SID · Auth Token · From number · To number |
-| **MS Teams** | Incoming Webhook URL |
+| Channel | Format | Required fields |
+|---|---|---|
+| **SendGrid** | HTML email | API key · From address (verified sender) · To address |
+| **SMTP Email** | HTML email | Host · Port · Username · Password · From address · To address |
+| **WhatsApp (Twilio)** | Plain text | Account SID · Auth Token · From number · To number |
+| **MS Teams** | Plain text | Incoming Webhook URL |
 
-Use the **Test** tab in Settings to send a test message to every configured channel before relying on alerts.
+Use the **Test** tab in Settings to:
+- **Test All** — send a plain test ping to every configured channel
+- **Send Preview** — send a fully rendered HTML sailing-alert email with sample weather data (email channels only)
 
 ---
 
@@ -288,13 +318,13 @@ Use the **Test** tab in Settings to send a test message to every configured chan
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 · TypeScript · Tailwind CSS v4 · Vite · Leaflet / react-leaflet |
-| Backend | Node.js · Express 5 · TypeScript · SQLite (better-sqlite3) · node-cron |
+| Frontend | React 19 · TypeScript · Tailwind CSS v4 · Vite 8 · Leaflet / react-leaflet |
+| Backend | Node.js · Express 5 · TypeScript 6 · SQLite (better-sqlite3) · node-cron |
 | Notifications | `@sendgrid/mail` · nodemailer · twilio · axios (Teams webhook) |
-| Testing | Vitest 2 · supertest |
+| Testing | Vitest 2 (backend) · Vitest 4 + React Testing Library (frontend) · supertest |
 | Container | Docker · Docker Compose · multi-arch (amd64 + arm64) |
 | Orchestration | Kubernetes / k3s |
-| CI/CD | GitHub Actions → GitHub Container Registry |
+| CI/CD | GitHub Actions (ubuntu-latest) → GitHub Container Registry |
 
 ---
 
