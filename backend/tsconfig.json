@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["node", "better-sqlite3"]
   },
-  "exclude": ["node_modules", "tests", "dist"]
+  "exclude": ["node_modules", "tests", "dist", "scripts"]
 }

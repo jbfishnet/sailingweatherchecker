@@ -2,7 +2,7 @@ name: CI & Release
 
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main, 'feat/**', 'claude/**']
     tags: ['v*']
   pull_request:
     branches: [main]
@@ -13,9 +13,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # ── Tests run on the self-hosted ARM64 runner ────────────────────────────
+  # ── Tests — GitHub-hosted runner (always available, gates all merges) ────
   test:
-    runs-on: [self-hosted, linux, ARM64]
+    name: Test
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -27,11 +28,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: TypeScript check — backend
+        run: npx tsc --noEmit
+        working-directory: backend
+
+      - name: TypeScript check — frontend
+        run: npx tsc --noEmit
+        working-directory: frontend
+
       - name: Run backend tests
-        run: npm run test --workspace backend
+        run: npm run test --workspace backend -- --reporter=verbose
 
       - name: Run frontend tests
-        run: npm run test --workspace frontend --if-present
+        run: npm run test --workspace frontend -- --reporter=verbose
 
   # ── Native amd64 build on the Intel self-hosted runner ───────────────────
   build-amd64:
