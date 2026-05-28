@@ -5,6 +5,7 @@ import db from './db/index.js';
 import { getWeatherData, isGoodConditions } from './services/weather.js';
 import { notifyAll } from './services/notifications.js';
 import { kmhToBeaufort } from './utils/beaufort.js';
+import { buildEmailHtml, buildEmailText } from './utils/emailTemplate.js';
 
 dotenv.config();
 const port = process.env.PORT || 3001;
@@ -35,9 +36,9 @@ async function checkWeatherForAllSpots() {
       );
 
       if (isGood && (!lastCheck || lastCheck.is_good === 0)) {
-        const bft = kmhToBeaufort(weather.windSpeed);
-        const body = `⛵ Good sailing at ${spot.name}! \nWind: ${bft} Bft, Temp: ${weather.temp}°C.`;
-        await notifyAll(settings, `Sailing Alert: ${spot.name}`, body);
+        const text = buildEmailText(spot, weather);
+        const html = buildEmailHtml(spot, weather);
+        await notifyAll(settings, `Sailing Alert: ${spot.name}`, text, html);
       }
     } catch (error) {
       console.error(`Failed to check weather for ${spot.name}`, error);
