@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.db
+*.db-journal
+*.log
+.DS_Store
+frontend/dist
+backend/dist
+secret.code

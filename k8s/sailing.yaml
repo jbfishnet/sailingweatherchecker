@@ -1,0 +1,187 @@
+# Sailing Weather Checker — Kubernetes manifests
+# Tested with k3s on Raspberry Pi 5.
+# For plain Kubernetes (non-k3s) replace LoadBalancer services with NodePort
+# and install MetalLB or an Ingress controller for external access.
+#
+# Apply:  kubectl apply -f k8s/sailing.yaml
+# Delete: kubectl delete -f k8s/sailing.yaml
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sailing
+
+---
+# Backend environment variables
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sailing-api-config
+  namespace: sailing
+data:
+  PORT: "3001"
+  DB_PATH: "/app/data/sailing.db"
+
+---
+# Persistent storage for the SQLite database
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sailing-data
+  namespace: sailing
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# Backend deployment — single replica required (SQLite cannot share a file across replicas)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sailing-api
+  namespace: sailing
+  labels:
+    app: sailing-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sailing-api
+  strategy:
+    type: Recreate   # avoids two pods fighting over the SQLite file during updates
+  template:
+    metadata:
+      labels:
+        app: sailing-api
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+        - name: sailing-api
+          image: ghcr.io/jbfishnet/sailingweatherchecker-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: sailing-api-config
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sailing-data
+
+---
+# Internal ClusterIP — nginx in the frontend pod resolves "sailing-api:3001" via this
+apiVersion: v1
+kind: Service
+metadata:
+  name: sailing-api
+  namespace: sailing
+spec:
+  selector:
+    app: sailing-api
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+  type: ClusterIP
+
+---
+# External access to the backend API on port 9921
+# On k3s this gets a real IP via Klipper LB; on bare-metal k8s install MetalLB first.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sailing-api-external
+  namespace: sailing
+spec:
+  selector:
+    app: sailing-api
+  ports:
+    - name: http
+      port: 9921
+      targetPort: 3001
+  type: LoadBalancer
+
+---
+# Frontend deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sailing-app
+  namespace: sailing
+  labels:
+    app: sailing-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sailing-app
+  template:
+    metadata:
+      labels:
+        app: sailing-app
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+        - name: sailing-app
+          image: ghcr.io/jbfishnet/sailingweatherchecker-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+
+---
+# External access to the frontend on port 9922
+apiVersion: v1
+kind: Service
+metadata:
+  name: sailing-app
+  namespace: sailing
+spec:
+  selector:
+    app: sailing-app
+  ports:
+    - name: http
+      port: 9922
+      targetPort: 80
+  type: LoadBalancer

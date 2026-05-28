@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ocean-dark: #0f172a;
+  --color-neon-blue: #00f2ff;
+  --color-neon-green: #39ff14;
+  --background-image-carbon: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+}
+
+/* Light (nautical) mode — overrides Tailwind's CSS custom properties */
+.light {
+  --color-ocean-dark: #e0f2fe;
+  --color-slate-950: #e2e8f0;
+  --color-slate-900: #ffffff;
+  --color-slate-800: #f1f5f9;
+  --color-slate-700: #cbd5e1;
+  --color-slate-600: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-400: #475569;
+  --color-slate-300: #334155;
+  --color-slate-200: #1e293b;
+  --color-slate-100: #0f172a;
+  --color-neon-blue: #0284c7;
+  --color-neon-green: #059669;
+  --color-yellow-400: #d97706;
+  --color-blue-400: #1d4ed8;
+  --color-red-500: #dc2626;
+  --color-red-900: #fee2e2;
+  --color-purple-400: #7c3aed;
+  --color-green-400: #16a34a;
+  color: #0f172a;
+}
+
+@layer base {
+  body {
+    @apply bg-ocean-dark text-slate-100 font-sans;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  html:not(.light) body {
+    background-image: theme(--background-image-carbon);
+  }
+
+  html.light body {
+    background-image: none;
+  }
+}
+
+@layer components {
+  .neon-border {
+    @apply border border-neon-blue;
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+  }
+
+  html.light .neon-border {
+    box-shadow: 0 0 8px rgba(2, 132, 199, 0.25);
+  }
+
+  .neon-text {
+    @apply text-neon-blue;
+    filter: drop-shadow(0 0 5px rgba(0, 242, 255, 0.5));
+  }
+
+  html.light .neon-text {
+    filter: drop-shadow(0 0 4px rgba(2, 132, 199, 0.3));
+  }
+
+  .glass-card {
+    @apply bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-xl overflow-hidden;
+  }
+
+
+  html.light .glass-card {
+    background-color: rgba(255, 255, 255, 0.88);
+    border-color: #cbd5e1;
+  }
+}

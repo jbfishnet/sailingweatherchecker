@@ -1,0 +1,26 @@
+services:
+  sailing-api:
+    image: sailing-api:latest
+    build:
+      context: ./backend
+    ports:
+      - "9921:3001"
+    volumes:
+      - sailing-data:/app/data
+    environment:
+      - PORT=3001
+      - DB_PATH=/app/data/sailing.db
+    restart: unless-stopped
+
+  sailing-app:
+    image: sailing-app:latest
+    build:
+      context: ./frontend
+    ports:
+      - "9922:80"
+    depends_on:
+      - sailing-api
+    restart: unless-stopped
+
+volumes:
+  sailing-data:
