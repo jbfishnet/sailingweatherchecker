@@ -2,7 +2,7 @@ name: CI & Release
 
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main, 'feat/**', 'claude/**']
     tags: ['v*']
   pull_request:
     branches: [main]
@@ -10,9 +10,10 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # ── Tests — GitHub-hosted runner (always available, gates all merges to main)
+  # ── Tests — GitHub-hosted runner (always available, gates all merges) ────
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -41,7 +42,7 @@ jobs:
       - name: Run frontend tests
         run: npm run test --workspace frontend -- --reporter=verbose
 
-  # ── Native amd64 build on the Intel runner ───────────────────────────────
+  # ── Native amd64 build on the Intel self-hosted runner ───────────────────
   build-amd64:
     name: Build ${{ matrix.component }} (amd64)
     needs: test
