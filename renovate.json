@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Group all non-major devDependencies into a single PR to cut noise",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "devDependencies (non-major)"
+    },
+    {
+      "description": "Group @types/* packages together",
+      "matchPackageNames": ["@types/**"],
+      "groupName": "type definitions"
+    },
+    {
+      "description": "Separate major upgrades so they get individual review",
+      "matchUpdateTypes": ["major"],
+      "addLabels": ["major-upgrade"]
+    }
+  ]
+}

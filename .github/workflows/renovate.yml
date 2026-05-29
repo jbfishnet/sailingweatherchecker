@@ -1,0 +1,36 @@
+name: Renovate
+
+on:
+  # Manual start — Actions → Renovate → Run workflow
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: "Renovate log level"
+        required: false
+        default: "info"
+        type: choice
+        options: [debug, info, warn, error]
+  # Scheduled self-hosted run (config also restricts PR creation via renovate.json schedule)
+  schedule:
+    - cron: "0 4 * * 1" # Mondays 04:00 UTC
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@v40.3.6
+        env:
+          # PAT (repo + workflow scope) or a GitHub App token — set as a repo/org secret.
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          # Use the config committed at the repo root.
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_REQUIRE_CONFIG: "required"
+          LOG_LEVEL: ${{ github.event.inputs.logLevel || 'info' }}
