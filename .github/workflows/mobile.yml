@@ -61,8 +61,10 @@ jobs:
   ios:
     needs: test
     # The org's M4 Mac mini self-hosted runner. Requires Xcode + CocoaPods + Node installed.
-    # Fallback if the M4 runner isn't ready: change to `macos-14` (GitHub-hosted Apple Silicon).
-    runs-on: [self-hosted, macOS, ARM64]
+    # Arch label intentionally omitted: this runner registered as X64 (x64/Rosetta runner
+    # binary) even though the M4 is Apple Silicon, so matching on `macOS` alone is robust.
+    # Fallback if the Mac runner is offline: change to `macos-14` (GitHub-hosted Apple Silicon).
+    runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
