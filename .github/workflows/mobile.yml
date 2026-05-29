@@ -1,0 +1,86 @@
+name: Mobile
+
+on:
+  push:
+    branches: [main, 'feat/**', 'claude/**']
+    paths: ['mobile/**', '.github/workflows/mobile.yml']
+  pull_request:
+    paths: ['mobile/**', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+defaults:
+  run:
+    working-directory: mobile
+
+jobs:
+  # ── JS unit tests (Jest) ─────────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Jest
+        run: npm test -- --ci
+
+  # ── Android debug APK ────────────────────────────────────────────────────
+  android:
+    needs: test
+    runs-on: ubuntu-latest # Android SDK preinstalled; can move to [self-hosted, linux, X64] once SDK is set up there
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - name: Gradle assembleDebug
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sailing-android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  # ── iOS unsigned simulator build ─────────────────────────────────────────
+  ios:
+    needs: test
+    # The org's M4 Mac mini self-hosted runner. Requires Xcode + CocoaPods + Node installed.
+    # Fallback if the M4 runner isn't ready: change to `macos-14` (GitHub-hosted Apple Silicon).
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: CocoaPods install
+        working-directory: mobile/ios
+        run: pod install
+      - name: Xcode build (unsigned, simulator)
+        working-directory: mobile/ios
+        run: |
+          xcodebuild build \
+            -workspace SailingMobile.xcworkspace \
+            -scheme SailingMobile \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
