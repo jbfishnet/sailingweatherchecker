@@ -208,3 +208,80 @@ describe('POST /api/settings/test-notification', () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('POST /api/settings/simulate-email', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns only sendgrid and email keys (no whatsapp or teams)', async () => {
+    const res = await request(app).post('/api/settings/simulate-email').send({});
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('sendgrid');
+    expect(res.body).toHaveProperty('email');
+    expect(res.body).not.toHaveProperty('whatsapp');
+    expect(res.body).not.toHaveProperty('teams');
+  });
+
+  it('returns skipped for both channels when nothing is configured', async () => {
+    const res = await request(app).post('/api/settings/simulate-email').send({});
+    expect(res.body.sendgrid).toBe('skipped');
+    expect(res.body.email).toBe('skipped');
+  });
+
+  it('returns sendgrid: ok and sends HTML email when fully configured', async () => {
+    mockSgSend.mockResolvedValue([{ statusCode: 202 }]);
+
+    const res = await request(app).post('/api/settings/simulate-email').send({
+      sendgridApiKey: 'SG.test-key',
+      sendgridFrom: 'alerts@example.com',
+      sendgridTo: 'sailor@example.com',
+    });
+
+    expect(res.body.sendgrid).toBe('ok');
+    expect(mockSgSend).toHaveBeenCalledWith(
+      expect.objectContaining({ html: expect.stringContaining('<!DOCTYPE html>') }),
+    );
+  });
+
+  it('returns email: ok and sends HTML when SMTP is configured', async () => {
+    mockSendMail.mockResolvedValue({ messageId: 'abc' });
+
+    const res = await request(app).post('/api/settings/simulate-email').send({
+      emailHost: 'smtp.example.com',
+      emailUser: 'user@example.com',
+      emailTo: 'sailor@example.com',
+      emailPass: 'secret',
+      emailFrom: 'user@example.com',
+    });
+
+    expect(res.body.email).toBe('ok');
+    expect(mockSendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ html: expect.stringContaining('<!DOCTYPE html>') }),
+    );
+  });
+
+  it('sends the preview spot name in the HTML', async () => {
+    mockSgSend.mockResolvedValue([{ statusCode: 202 }]);
+
+    await request(app).post('/api/settings/simulate-email').send({
+      sendgridApiKey: 'SG.key', sendgridFrom: 'f@x.com', sendgridTo: 't@x.com',
+    });
+
+    const sentHtml: string = mockSgSend.mock.calls[0][0].html;
+    expect(sentHtml).toContain('Kiel Fjord');
+  });
+
+  it('returns error message when SendGrid rejects', async () => {
+    mockSgSend.mockRejectedValue(new Error('API key invalid'));
+
+    const res = await request(app).post('/api/settings/simulate-email').send({
+      sendgridApiKey: 'SG.bad',
+      sendgridFrom: 'f@x.com',
+      sendgridTo: 't@x.com',
+    });
+
+    expect(res.body.sendgrid).toMatch(/invalid/i);
+    expect(res.body.email).toBe('skipped');
+  });
+});

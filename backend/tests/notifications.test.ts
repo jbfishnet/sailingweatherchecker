@@ -91,6 +91,14 @@ describe('sendSendGrid', () => {
     );
     await expect(sendSendGrid(full, 'S', 'B')).rejects.toThrow('verified Sender');
   });
+
+  it('passes html to sgMail.send when provided', async () => {
+    mockSgSend.mockResolvedValue([{ statusCode: 202 }]);
+    await sendSendGrid(full, 'Subject', 'text body', '<h1>HTML</h1>');
+    expect(mockSgSend).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'text body', html: '<h1>HTML</h1>' }),
+    );
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,6 +131,14 @@ describe('sendEmail (SMTP)', () => {
   it('skips when emailTo is missing', async () => {
     await sendEmail({ emailHost: full.emailHost, emailUser: full.emailUser }, 'S', 'B');
     expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('passes html to sendMail when provided', async () => {
+    mockSendMail.mockResolvedValue({ messageId: 'abc' });
+    await sendEmail(full, 'Subject', 'text body', '<h1>HTML</h1>');
+    expect(mockSendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'text body', html: '<h1>HTML</h1>' }),
+    );
   });
 });
 
@@ -212,5 +228,16 @@ describe('notifyAll', () => {
     );
     expect(mockSgSend).toHaveBeenCalled();
     expect(mockSendMail).toHaveBeenCalled();
+  });
+
+  it('passes html through to SendGrid when provided', async () => {
+    mockSgSend.mockResolvedValue([{ statusCode: 202 }]);
+    await notifyAll(
+      { sendgridApiKey: 'SG.k', sendgridFrom: 'f@x.com', sendgridTo: 't@x.com' },
+      'Subject', 'body text', '<p>HTML</p>',
+    );
+    expect(mockSgSend).toHaveBeenCalledWith(
+      expect.objectContaining({ html: '<p>HTML</p>' }),
+    );
   });
 });
